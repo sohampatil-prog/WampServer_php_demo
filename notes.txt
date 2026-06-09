@@ -1,0 +1,147 @@
+## 1. Always check if XAMPP services are actually running
+
+Open XAMPP Control Panel and make sure both **Apache** and **MySQL** show green before you do anything. Don't assume they're running just because you opened the control panel.
+
+Also check — is anything else on your machine using **port 80** (Apache) or **port 3306** (MySQL)? WAMP might already be running in the background and occupying those ports.
+
+```
+XAMPP Control Panel → Apache → if it fails to start → port conflict
+```
+
+**Fix:** Stop WAMP first, then start XAMPP. You can't run both simultaneously on the same ports. Always use one at a time.
+
+---
+
+## 2. Know where your web root is
+
+In XAMPP it's different from WAMP:
+
+| Stack | Web root |
+|---|---|
+| WAMP | `C:\wamp64\www\` |
+| XAMPP | `C:\xampp\htdocs\` |
+
+Every project goes inside `htdocs\`. This is the first thing to get wrong if you're switching between the two stacks — don't accidentally put your XAMPP project inside `wamp64\www\`.
+
+---
+
+## 3. Set up `php.ini` for development before writing code
+
+XAMPP ships with PHP configured for production by default — errors are hidden. The first thing to change is:
+
+Open `C:\xampp\php\php.ini` and set:
+
+```ini
+; Show all errors on screen during development
+display_errors = On
+error_reporting = E_ALL
+
+; Your timezone — avoids warnings in date/time functions
+date.timezone = "Asia/Kolkata"
+
+; Increase if you'll handle file uploads
+upload_max_filesize = 20M
+post_max_size = 20M
+```
+
+Restart Apache after saving. If you skip this, PHP errors will silently fail and you'll spend hours confused about why nothing works.
+
+---
+
+## 4. Create a virtual host from day one
+
+Don't access your project via `http://localhost/projectname/` — set up a proper vhost immediately. The process in XAMPP is almost identical to WAMP:
+
+**In XAMPP**, the vhost file is at:
+```
+C:\xampp\apache\conf\extra\httpd-vhosts.conf
+```
+
+And you need to uncomment this line in `httpd.conf`:
+```apache
+Include conf/extra/httpd-vhosts.conf
+```
+
+Then add your project's hosts file entry the same way — `127.0.0.1 myproject.test`.
+
+**Why from day one:** If you build the whole project under `localhost/myapp/` and then add a vhost later, any hardcoded URLs or absolute paths in your code will break. Starting with a vhost means your project behaves like a real domain from the beginning.
+
+---
+
+## 5. Decide your database collation upfront
+
+Always use `utf8mb4_unicode_ci` — not `utf8_general_ci`, not the default. Set it when creating the database and never think about it again.
+
+```sql
+CREATE DATABASE myproject CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+`utf8mb4` supports emojis and all international characters. The older `utf8` in MySQL is actually a broken 3-byte version that silently drops certain characters. Every real production database uses `utf8mb4`.
+
+---
+
+## 6. Keep your database credentials in one place
+
+Before writing any PHP, create your `config/db.php` file first — even before `index.php`. Never hardcode credentials directly inside a page file. The moment you do, you'll copy-paste it everywhere and updating a password becomes a nightmare.
+
+```
+project/
+├── config/
+│   └── db.php     ← create this first, everything else requires_once it
+├── index.php
+└── ...
+```
+
+---
+
+## 7. Plan your folder structure before creating files
+
+Spending 5 minutes on this saves hours of reorganising later. A simple structure that scales:
+
+```
+C:\xampp\htdocs\myproject\
+├── config/
+│   └── db.php          ← database connection
+├── public/             ← only this folder is truly web-accessible
+│   ├── index.php
+│   ├── css/
+│   └── js/
+├── src/                ← your PHP logic (not directly accessible)
+│   └── helpers.php
+└── .htaccess
+```
+
+In real industry projects, only the `public/` folder is the document root. Everything else — config, logic, vendor libraries — sits outside the web root so the browser can never directly access it.
+
+---
+
+## 8. Never use the `root` user with no password in a shared project
+
+XAMPP's default is `root` with no password — fine for solo learning. But the moment you work on a team or push anything remotely, create a dedicated user:
+
+Go to phpMyAdmin → User Accounts → Add user:
+
+```
+Username: myproject_user
+Host: localhost
+Password: something_strong
+```
+
+Grant only the permissions that project needs (SELECT, INSERT, UPDATE, DELETE on that database only). This is called the **principle of least privilege** and it's standard practice everywhere.
+
+---
+
+## Quick pre-project checklist
+
+```
+□ WAMP is stopped (no port conflicts)
+□ XAMPP Apache and MySQL are green
+□ php.ini has display_errors = On and correct timezone
+□ Virtual host created and hosts file updated
+□ Database created with utf8mb4_unicode_ci
+□ config/db.php created with PDO connection
+□ Folder structure planned before writing page files
+□ .htaccess in place
+```
+
+Pin this checklist somewhere. It takes 10 minutes to go through and saves hours of debugging later.
